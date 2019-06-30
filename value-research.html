@@ -1,0 +1,136 @@
+<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.1.2/handlebars.min.js' />-->
+
+<script>
+const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
+let url = 'https://www.valueresearchonline.com/funds/fundSelector/returns.asp?cat=equityAll&exc=susp%2Cclose%2C3Star%2C2Star%2C1Star&rettab=ov'
+let targetUrl = proxyUrl + url
+
+let headers = {}
+
+let fundsMap = {}
+let fundsList = []
+
+const processResponse = function (htmlStr) {
+  /*
+  let parser = new DOMParser()
+  let htmlDoc = parser.parseFromString(htmlStr, 'text/xml')
+  console.log(htmlDoc)
+  let tab = htmlDoc.getElementById('fundCatData')
+  console.log(tab)
+  */
+
+  let el = document.createElement( 'html' )
+  el.innerHTML = htmlStr
+  // console.log(el)
+  let rows = el.querySelectorAll('#fundCatData table tbody tr')
+  // console.log(rows)
+  for (let i = 0; i < rows.length; i++) {
+    // console.log(rows[i])
+    let cells = rows[i].querySelectorAll('td')
+    let fundName = cells[0].querySelector('a').textContent
+    let test = cells[1].textContent
+
+    function getReturn(numStr) {
+      return (numStr.textContent === '-') ? 0 : Number(numStr.textContent)
+    }
+
+    let props = {
+      'name': fundName,
+      'return_1mon': getReturn(cells[2]),
+      'rank_1mon': cells[3].textContent,
+
+      'return_3mon': getReturn(cells[4]),
+      'rank_3mon': cells[5].textContent,
+
+      'return_1': getReturn(cells[6]),
+      'rank_1': cells[7].textContent,
+
+      'return_3': getReturn(cells[8]),
+      'rank_3': cells[9].textContent,
+
+      'return_5': getReturn(cells[10]),
+      'rank_5': cells[11].textContent,
+
+      'return_10': getReturn(cells[12]),
+      'rank_10': cells[13].textContent,
+    }
+    fundsMap[fundName] = props
+    fundsList.push(props)
+  }
+  // console.log(fundsMap)
+
+  function dynSort(param) {
+    return function (a, b) { return a[param] < b[param] ? 1 : -1 }
+  }
+  function top(arr, param, count) {
+    return arr.sort(dynSort(param)).slice(0, count).map(f => f.name)
+  }
+
+  function intersection() {
+    var result = [];
+    var lists;
+    
+    if(arguments.length === 1) {
+      lists = arguments[0];
+    } else {
+      lists = arguments;
+    }
+    
+    for(var i = 0; i < lists.length; i++) {
+      var currentList = lists[i];
+      for(var y = 0; y < currentList.length; y++) {
+        var currentValue = currentList[y];
+        if(result.indexOf(currentValue) === -1) {
+          if(lists.filter(function(obj) { return obj.indexOf(currentValue) == -1 }).length == 0) {
+            result.push(currentValue);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  function something(fundsList, periodList, count) {
+    let test = periodList.map(period => top(fundsList, period, count))
+    return intersection(test)
+  }
+
+  let best_10 = top(fundsList, 'return_10', 20)
+  console.log(JSON.stringify(best_10, 0, 2))
+
+  let best_5 = top(fundsList, 'return_5', 20)
+  console.log(JSON.stringify(best_5, 0, 2))
+
+  let best_3 = top(fundsList, 'return_3', 20)
+  console.log(JSON.stringify(best_3, 0, 2))
+
+  let best_1 = top(fundsList, 'return_1', 20)
+  console.log(JSON.stringify(best_1, 0, 2))
+
+  console.log(something(fundsList, ['return_10', 'return_5', 'return_3', 'return_1', 'return_3mon'], 100))
+  console.log(something(fundsList, ['return_10', 'return_5', 'return_3', 'return_1'], 20))
+
+  // console.log(intersection([best_10, best_5, best_3, best_1]))
+  // console.log(intersection([best_10, best_5, best_3]))
+  // console.log(intersection([best_5, best_3, best_1]))
+}
+
+
+fetch(targetUrl, {
+    method: 'get',
+    headers,
+    // body: formData,
+  }).then(function (response) {
+    // console.log(response)
+    return response.text()
+  }).then(function (data) {
+    // console.log(data)
+    processResponse(data)
+    // document.getElementById('abc').innerHTML = data
+  }).catch(console.log)
+
+// chrome.exe --user-data-dir="C:/Chrome dev session" --disable-web-security
+</script>
+
+<div id='abc'>
+<div>
