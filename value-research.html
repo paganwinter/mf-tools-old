@@ -42,16 +42,16 @@ const processResponse = function (htmlStr) {
       'return_3mon': getReturn(cells[4]),
       'rank_3mon': cells[5].textContent,
 
-      'return_1': getReturn(cells[6]),
+      '1_yr_returns': getReturn(cells[6]),
       'rank_1': cells[7].textContent,
 
-      'return_3': getReturn(cells[8]),
+      '3_yr_returns': getReturn(cells[8]),
       'rank_3': cells[9].textContent,
 
-      'return_5': getReturn(cells[10]),
+      '5_yr_returns': getReturn(cells[10]),
       'rank_5': cells[11].textContent,
 
-      'return_10': getReturn(cells[12]),
+      '10_yr_returns': getReturn(cells[12]),
       'rank_10': cells[13].textContent,
     }
     fundsMap[fundName] = props
@@ -91,28 +91,21 @@ const processResponse = function (htmlStr) {
   }
 
   function something(fundsList, periodList, count) {
-    let test = periodList.map(period => top(fundsList, period, count))
-    return intersection(test)
+    // let test = periodList.map(period => top(fundsList, period, count))
+    let topList = []
+    periodList.forEach(period => {
+      let topFunds = top(fundsList, period, count)
+      topList.push(topFunds)
+      console.log(`top ${count} funds with best - ${period}`)
+      console.log(JSON.stringify(topFunds, 0, 2))
+    })
+
+    return intersection(topList)
   }
 
-  let best_10 = top(fundsList, 'return_10', 20)
-  console.log('best 10 year returns', JSON.stringify(best_10, 0, 2))
-
-  let best_5 = top(fundsList, 'return_5', 20)
-  console.log('best 5 year returns', JSON.stringify(best_5, 0, 2))
-
-  let best_3 = top(fundsList, 'return_3', 20)
-  console.log('best 3 year returns', JSON.stringify(best_3, 0, 2))
-
-  let best_1 = top(fundsList, 'return_1', 20)
-  console.log('best 1 year returns', JSON.stringify(best_1, 0, 2))
-
   // console.log(something(fundsList, ['return_10', 'return_5', 'return_3', 'return_1', 'return_3mon'], 100))
-  console.log(something(fundsList, ['return_10', 'return_5', 'return_3', 'return_1'], 20))
+  console.log(something(fundsList, ['10_yr_returns', '5_yr_returns', '3_yr_returns', '1_yr_returns'], 20))
 
-  // console.log(intersection([best_10, best_5, best_3, best_1]))
-  // console.log(intersection([best_10, best_5, best_3]))
-  // console.log(intersection([best_5, best_3, best_1]))
 }
 
 
