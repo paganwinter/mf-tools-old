@@ -40,6 +40,7 @@
   <option value="9">9 years</option>
   <option value="10">10 years</option>
 </select>
+<input type="number" id="cagr-threshold" value="10" />
 
 <input type="button" value="Plot" onclick="filterChanged()" />
 
@@ -163,7 +164,7 @@ function getPrevNav(fund, date, years) {
 
 
 
-async function plot(category, years = 1) {
+async function plot(category, { years = 1, cagrThreshold = 10 }) {
   let targetFunds = filterFunds(fundsMaster, category)
   console.log('category', category)
   console.log('targetFunds', targetFunds)
@@ -215,13 +216,17 @@ async function plot(category, years = 1) {
         // console.log(fund.name, dt, prevDt, (new Date(prevDt)).getDay())
       }
     })
+    let validData = data.filter(d => d)
+    let avg = validData.reduce((acc, item) => (acc + item), 0) / validData.length
+    console.log(fund.name, avg)
+
     datasets.push({
       label: fund.name,
       data,
       pointRadius: 0,
       fill: false,
       borderColor: fund.color,
-      // hidden: true,
+      hidden: (avg < cagrThreshold),
       borderWidth: 2,
     })
   }
@@ -233,7 +238,8 @@ async function plot(category, years = 1) {
 function filterChanged() {
   let category = document.getElementById('fund-category').value
   let years = 1 * document.getElementById('years').value
-  plot(category, years)
+  let cagrThreshold = 1 * document.getElementById('cagr-threshold').value
+  plot(category, { years, cagrThreshold })
 }
 
 window.onload = async function () {
@@ -244,7 +250,7 @@ window.onload = async function () {
   }
   console.log('fundsMaster', fundsMaster)
 
-  plot('Large Cap Fund', 5)
+  plot('Large Cap Fund', { years: 5 })
   return
 }
 
