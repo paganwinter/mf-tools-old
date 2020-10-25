@@ -10,6 +10,23 @@
   <option value="Small Cap Fund">Small Cap Fund</option>
   <option value="Multi Cap Fund">Multi Cap Fund</option>
   <option value="Value Fund">Value Fund</option>
+  <option value="Contra Fund">Contra Fund</option>
+  <option value="Focused Fund">Focused Fund</option>
+  <option value="Sectoral/ Thematic">Sectoral/ Thematic</option>
+  <option value="Aggressive Hybrid Fund Aggressive Hybrid Fund</option>
+  <option value="Balanced Hybrid Fund">Balanced Hybrid Fund</option>
+  <option value="Conservative Hybrid Fund">Conservative Hybrid Fund</option>
+  <option value="Dynamic Asset Allocation or Balanced Advantage">Dynamic Asset Allocation or Balanced Advantage</option>
+  <option value="Equity Savings">Equity Savings</option>
+  <option value="Multi Asset Allocation">Multi Asset Allocation</option>
+  <option value="FoF Domestic">FoF Domestic</option>
+  <option value="FoF Overseas">FoF Overseas</option>
+  <option value="Gold ETF">Gold ETF</option>
+  <option value="Index Funds">Index Funds</option>
+  <option value="Other  ETFs">Other  ETFs</option>
+  <option value="Growth">Growth</option>
+  <option value="ELSS">ELSS</option>
+  <option value=""></option>
 </select>
 <select id="years">
   <option value="1">1 year</option>
@@ -26,7 +43,7 @@
 
 <input type="button" value="Plot" onclick="filterChanged()" />
 
-<div>
+<div class="chart-container" style="position: relative; height:50vh; width:100vw">
   <canvas id="chart"></canvas>
 </div>
 
@@ -35,6 +52,10 @@
 <script src="funds.js"></script>
 
 <script>
+let fundsMaster = {}
+let chartObj
+
+
 function getRandomColor() {
   var letters = '0123456789ABCDEF';
   var color = '#';
@@ -98,13 +119,16 @@ function cagr(start, end, years) {
 
 function renderChart(elId, data) {
   const ctx = document.getElementById(elId).getContext('2d');
-  var myLineChart = new Chart(ctx, {
+  if (chartObj) chartObj.destroy()
+  chartObj = new Chart(ctx, {
     type: 'line',
     data: {
       labels: data.dates,
       datasets: data.datasets,
     },
-    options: {},
+    options: {
+      responsive: true,
+    },
   });
 }
 
@@ -212,7 +236,6 @@ function filterChanged() {
   plot(category, years)
 }
 
-let fundsMaster = {}
 window.onload = async function () {
   console.log('fundsData', fundsData)
   for (let f of fundsData.funds) {
