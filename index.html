@@ -3,8 +3,31 @@
 </head>
 
 <body>
+<select id="fund-category">
+  <option value="Large Cap Fund">Large Cap Fund</option>
+  <option value="Large & Mid Cap Fund">Large & Mid Cap Fund</option>
+  <option value="Mid Cap Fund">Mid Cap Fund</option>
+  <option value="Small Cap Fund">Small Cap Fund</option>
+  <option value="Multi Cap Fund">Multi Cap Fund</option>
+  <option value="Value Fund">Value Fund</option>
+</select>
+<select id="years">
+  <option value="1">1 year</option>
+  <option value="2">2 years</option>
+  <option value="3">3 years</option>
+  <option value="4">4 years</option>
+  <option value="5">5 years</option>
+  <option value="6">6 years</option>
+  <option value="7">7 years</option>
+  <option value="8">8 years</option>
+  <option value="9">9 years</option>
+  <option value="10">10 years</option>
+</select>
+
+<input type="button" value="Plot" onclick="filterChanged()" />
+
 <div>
-  <canvas id="canvas"></canvas>
+  <canvas id="chart"></canvas>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -23,16 +46,35 @@ function getRandomColor() {
 
 async function fetchNav(schemeCode) {
   try {
-    let { data } = await axios.get(`https://api.mfapi.in/mf/${schemeCode}`)
-    return { data }
+    let { status, data } = await axios.get(`https://api.mfapi.in/mf/${schemeCode}`)
+    let name = data.meta.scheme_name
+    let code = data.meta.scheme_code
+
+    navMap = {}
+    navArr = []
+    data.data.forEach(i => {
+      let nav = parseFloat(i.nav)
+      let date = i.date.split('-').reverse().join('-')
+      navMap[date] = nav
+      navArr.push({ date, nav })
+    })
+    return { name, code, navMap, navArr }
   } catch (error) {
     return { error }
   }
 }
 
 async function downloadNavs(funds) {
-  let calls = funds.map(f => fetchNav(f.code))
-  return Promise.all(calls)
+  let calls = []
+  for (let code in funds) {
+    calls.push(fetchNav(code))
+  }
+  let data = await Promise.all(calls)
+  let navData = {}
+  for (let f of data) {
+    navData[f.code] = f
+  }
+  return navData
 }
 
 function subtractYears(dtStr, years) {
@@ -41,67 +83,146 @@ function subtractYears(dtStr, years) {
   return [y, m, d].join('-')
 }
 
-window.onload = async function () {
-  console.log(fundsData)
-  let targetFunds = fundsData.funds.filter(f => {
-    return f.rawCategory === 'Open Ended Schemes(Equity Scheme - Mid Cap Fund)'
-      && !f.name.match(/dividend/i)
-      && !f.name.match(/direct/i)
-  })
-  console.log(targetFunds)
+function addDays(dtStr, days) {
+  let dt = new Date(dtStr)
+  dt.setDate(dt.getDate() + days)
+  let y = dt.getFullYear()
+  let m = `${dt.getMonth() + 1}`.padStart(2, '0')
+  let d = `${dt.getDate()}`.padStart(2, '0')
+  return [y, m, d].join('-')
+}
 
-  for (let f of targetFunds) {
-    console.log(f.name, f.code)
-  }
+function cagr(start, end, years) {
+  return ((Math.pow(end/start, 1/years) - 1) * 100)
+}
 
-  let navData = await downloadNavs(targetFunds)
-  console.log(navData)
-
-  let byDate = {}
-  for (let f of navData) {
-    let name = f.data.meta.scheme_name
-    for (let entry of f.data.data) {
-      let nav = parseFloat(entry.nav)
-      let dt = entry.date.split('-').reverse().join('-')
-      byDate[dt] = byDate[dt] || {}
-      byDate[dt][name] = nav
-    }
-  }
-  let dates = Object.keys(byDate).sort()
-  console.log(byDate)
-  console.log(dates)
-
-  let datasets = []
-  for (let f of navData) {
-    const name = f.data.meta.scheme_name
-    let data = dates.map((dt, i) => {
-      let prevDay = subtractYears(dt, 1)
-      // console.log(dt, prevDay)
-      if (byDate[prevDay] && byDate[prevDay][name]) {
-        return (byDate[dt][name] - byDate[prevDay][name]) / byDate[prevDay][name] * 100
-      }
-    })
-    datasets.push({
-      label: name,
-      data,
-      pointRadius: 0,
-      fill: false,
-      borderColor: getRandomColor(),
-      hidden: true,
-    })
-  }
-
-
-  let ctx = document.getElementById('canvas').getContext('2d');
+function renderChart(elId, data) {
+  const ctx = document.getElementById(elId).getContext('2d');
   var myLineChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: dates,
-      datasets,
+      labels: data.dates,
+      datasets: data.datasets,
     },
     options: {},
   });
+}
 
+function filterFunds(fundsMast, cat) {
+  let targetFunds = {}
+  for (let code in fundsMast) {
+    let fund = fundsMast[code]
+    if (fund.category === cat && !fund.name.match(/dividend/i) && !fund.name.match(/direct/i)) {
+      targetFunds[code] = fund
+    }
+  }
+  return targetFunds
+}
+
+function getPrevNav(fund, date, years) {
+  let prevDt = subtractYears(date, years)
+  let prevNav = fund.navMap[prevDt]
+  if (prevNav) return { nav: prevNav, date: prevDt }
+
+  prevDt = addDays(prevDt, 1)
+  prevNav = fund.navMap[prevDt]
+  if (prevNav) return { nav: prevNav, date: prevDt }
+
+  prevDt = addDays(prevDt, 1)
+  prevNav = fund.navMap[prevDt]
+  if (prevNav) return { nav: prevNav, date: prevDt }
+
+  prevDt = addDays(prevDt, 1)
+  prevNav = fund.navMap[prevDt]
+  if (prevNav) return { nav: prevNav, date: prevDt }
+}
+
+
+
+async function plot(category, years = 1) {
+  let targetFunds = filterFunds(fundsMaster, category)
+  console.log('category', category)
+  console.log('targetFunds', targetFunds)
+
+  let navLoaded = false
+  for (let code in targetFunds) {
+    if (targetFunds[code].navMap) {
+      navLoaded = true
+      break
+    }
+  }
+
+  if (!navLoaded) {
+    console.log('fetching navs')
+    let navData = await downloadNavs(targetFunds)
+    // console.log('navData', navData)
+    for (let code in targetFunds) {
+      targetFunds[code].navMap = navData[code].navMap
+      targetFunds[code].navArr = navData[code].navArr
+    }
+  }
+
+  let byDate = {}
+  for (let code in targetFunds) {
+    for (let dt in targetFunds[code].navMap) {
+      let nav = targetFunds[code].navMap[dt]
+      byDate[dt] = byDate[dt] || {}
+      byDate[dt][code] = nav
+    }
+  }
+  let dates = Object.keys(byDate).sort()
+
+  // console.log('targetFunds', targetFunds)
+  // console.log('byDate', byDate)
+  // console.log('dates', dates)
+
+  let datasets = []
+  for (let code in targetFunds) {
+    let fund = targetFunds[code]
+
+    let data = dates.map((dt, i) => {
+      let endNav = fund.navMap[dt]
+      let prev = getPrevNav(fund, dt, years)
+      if (prev) {
+        let startNav = prev.nav
+        return cagr(startNav, endNav, years)
+      } else {
+        // console.log(fund.name, dt, prev)
+        // console.log(fund.name, dt, prevDt, (new Date(prevDt)).getDay())
+      }
+    })
+    datasets.push({
+      label: fund.name,
+      data,
+      pointRadius: 0,
+      fill: false,
+      borderColor: fund.color,
+      // hidden: true,
+      borderWidth: 2,
+    })
+  }
+  console.log('datasets', datasets)
+
+  renderChart('chart', { dates, datasets })
+}
+
+function filterChanged() {
+  let category = document.getElementById('fund-category').value
+  let years = 1 * document.getElementById('years').value
+  plot(category, years)
+}
+
+let fundsMaster = {}
+window.onload = async function () {
+  console.log('fundsData', fundsData)
+  for (let f of fundsData.funds) {
+    fundsMaster[f.code] = f
+    fundsMaster[f.code].color = getRandomColor()
+  }
+  console.log('fundsMaster', fundsMaster)
+
+  plot('Large Cap Fund', 5)
+  return
 }
 
 
